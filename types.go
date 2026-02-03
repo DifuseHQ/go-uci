@@ -181,15 +181,30 @@ func (c *config) Merge(s *section) *section {
 }
 
 func (c *config) Del(name string) {
-	var i int
-	for i = 0; i < len(c.Sections); i++ {
-		if c.Sections[i].Name == name {
-			break
-		}
-	}
-	if i < len(c.Sections) {
-		c.Sections = append(c.Sections[:i], c.Sections[i+1:]...)
-	}
+    if strings.HasPrefix(name, "@") {
+        target, err := c.getUnnamed(name)
+        if err != nil || target == nil {
+            return
+        }
+        
+        for i, s := range c.Sections {
+            if s == target {
+                c.Sections = append(c.Sections[:i], c.Sections[i+1:]...)
+                return
+            }
+        }
+        return
+    }
+
+    var i int
+    for i = 0; i < len(c.Sections); i++ {
+        if c.Sections[i].Name == name {
+            break
+        }
+    }
+    if i < len(c.Sections) {
+        c.Sections = append(c.Sections[:i], c.Sections[i+1:]...)
+    }
 }
 
 func (c *config) sectionName(s *section) string {

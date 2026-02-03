@@ -209,6 +209,33 @@ func TestDelSection(t *testing.T) {
 	assert.True(errors.As(err, &fileNotFound))
 }
 
+func TestDelSection_Anonymous(t *testing.T) {
+	assert := assert.New(t)
+	r := NewTree("testdata")
+
+	configName := "anon_delete"
+	err := r.LoadConfig(configName, false)
+	assert.NoError(err)
+
+	val, exists := r.Get(configName, "@defaults[0]", "input")
+	assert.True(exists)
+	assert.Equal("FIRST_SECTION", val[0])
+
+	val, exists = r.Get(configName, "@defaults[1]", "input")
+	assert.True(exists)
+	assert.Equal("SECOND_SECTION", val[0])
+
+	err = r.DelSection(configName, "@defaults[0]")
+	assert.NoError(err)
+
+	val, exists = r.Get(configName, "@defaults[0]", "input")
+	assert.True(exists)
+	assert.Equal("SECOND_SECTION", val[0], "The second section should have shifted to index 0")
+
+	_, exists = r.GetLoaded(configName, "@defaults[1]", "input")
+	assert.False(exists, "Index 1 should no longer exist")
+}
+
 func TestGet(t *testing.T) {
 	assert := assert.New(t)
 
@@ -230,6 +257,24 @@ func TestGet(t *testing.T) {
 	values, exists = r.Get("system", "nonexistent", "foo")
 	assert.False(exists)
 	assert.Nil(values)
+}
+
+func TestGetLoaded(t *testing.T) {
+	assert := assert.New(t)
+	r := NewTree("testdata")
+	configName := "lazy_load"
+
+	val, exists := r.GetLoaded(configName, "main", "check")
+	assert.False(exists, "GetLoaded should fail because config is not loaded yet")
+	assert.Nil(val)
+
+	val, exists = r.Get(configName, "main", "check")
+	assert.True(exists, "Get should succeed and auto-load the file")
+	assert.Equal("working", val[0])
+
+	val, exists = r.GetLoaded(configName, "main", "check")
+	assert.True(exists, "GetLoaded should succeed now that config is loaded")
+	assert.Equal("working", val[0])
 }
 
 func TestDel(t *testing.T) {

@@ -46,6 +46,11 @@ type Tree interface {
 	// within exists.
 	Get(config, section, option string) ([]string, bool)
 
+	// GetLoaded works like Get but operates strictly on the in-memory configuration state.
+	// It does not attempt to load the config file from disk if the config or option is
+	// missing. This is useful for verifying changes (like deletions) before they are committed.
+	GetLoaded(config, section, option string) ([]string, bool)
+
 	// GetLast retrieves the last value that was defined for a fully
 	// qualified option, and a boolean indicating whether the config file,
 	// config section and the option exists.
@@ -178,6 +183,13 @@ func (t *tree) Get(config, section, option string) ([]string, bool) {
 	if err := t.loadConfig(config); err != nil {
 		return nil, false
 	}
+	return t.lookupValues(config, section, option)
+}
+
+func (t *tree) GetLoaded(config, section, option string) ([]string, bool) {
+	t.Lock()
+	defer t.Unlock()
+
 	return t.lookupValues(config, section, option)
 }
 

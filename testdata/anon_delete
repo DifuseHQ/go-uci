@@ -1,0 +1,8 @@
+config defaults
+	option input 'FIRST_SECTION'
+
+config zone
+	option name 'lan'
+
+config defaults
+	option input 'SECOND_SECTION'

@@ -40,6 +40,11 @@ func (m *mockTree) Get(config, section, option string) ([]string, bool) {
 	return []string{args.String(0)}, args.Bool(1)
 }
 
+func (m *mockTree) GetLoaded(config, section, option string) ([]string, bool) {
+	args := m.Called(config, section, option)
+	return []string{args.String(0)}, args.Bool(1)
+}
+
 func (m *mockTree) GetLast(config, section, option string) (string, bool) {
 	args := m.Called(config, section, option)
 	return args.String(0), args.Bool(1)
