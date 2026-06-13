@@ -181,30 +181,23 @@ func (c *config) Merge(s *section) *section {
 }
 
 func (c *config) Del(name string) {
-    if strings.HasPrefix(name, "@") {
-        target, err := c.getUnnamed(name)
-        if err != nil || target == nil {
-            return
-        }
-        
-        for i, s := range c.Sections {
-            if s == target {
-                c.Sections = append(c.Sections[:i], c.Sections[i+1:]...)
-                return
-            }
-        }
-        return
-    }
-
-    var i int
-    for i = 0; i < len(c.Sections); i++ {
-        if c.Sections[i].Name == name {
-            break
-        }
-    }
-    if i < len(c.Sections) {
-        c.Sections = append(c.Sections[:i], c.Sections[i+1:]...)
-    }
+	// Resolve the section to a pointer, handling both named sections and the
+	// anonymous "@type[index]" selector syntax.
+	var target *section
+	if strings.HasPrefix(name, "@") {
+		target, _ = c.getUnnamed(name)
+	} else {
+		target = c.getNamed(name)
+	}
+	if target == nil {
+		return
+	}
+	for i, s := range c.Sections {
+		if s == target {
+			c.Sections = append(c.Sections[:i], c.Sections[i+1:]...)
+			return
+		}
+	}
 }
 
 func (c *config) sectionName(s *section) string {

@@ -216,6 +216,35 @@ func TestAddSection(t *testing.T) {
 	assert.ElementsMatch(values, []string{"value"})
 }
 
+func TestAddAnonymousSection(t *testing.T) {
+	assert := assert.New(t)
+	r := NewTree("testdata")
+
+	assert.NoError(r.AddAnonymousSection("anonymous", "anon1"))
+	names, err := r.GetSections("anonymous", "anon1")
+	assert.NoError(err)
+	assert.Len(names, 2)
+	assert.ElementsMatch(names, []string{"@anon1[0]", "@anon1[1]"})
+
+	assert.NoError(r.AddAnonymousSection("anonymous", "anon2"))
+	assert.NoError(r.AddAnonymousSection("anonymous", "anon2"))
+	names, err = r.GetSections("anonymous", "anon2")
+	assert.NoError(err)
+	assert.Len(names, 4)
+
+	assert.NoError(r.AddAnonymousSection("anonymous", "newtype"))
+	assert.NoError(r.SetType("anonymous", "@newtype[0]", "key", TypeOption, "val"))
+	values, exists := r.Get("anonymous", "@newtype[0]", "key")
+	assert.True(exists)
+	assert.ElementsMatch(values, []string{"val"})
+
+	assert.NoError(r.AddAnonymousSection("nonexistent", "newtype"))
+	assert.NoError(r.SetType("nonexistent", "@newtype[0]", "key", TypeOption, "val"))
+	values, exists = r.Get("nonexistent", "@newtype[0]", "key")
+	assert.True(exists)
+	assert.ElementsMatch(values, []string{"val"})
+}
+
 func TestDelSection(t *testing.T) {
 	assert := assert.New(t)
 	r := NewTree("testdata")
@@ -238,8 +267,66 @@ func TestDelSection(t *testing.T) {
 	assert.Error(err)
 	assert.True(errors.As(err, &fileNotFound))
 	_, err = r.GetSections("nonexistent", "foo")
-	assert.Error(err) // Todo: specify error type
-	assert.True(errors.As(err, &fileNotFound))
+	assert.ErrorAs(err, &fileNotFound)
+}
+
+func TestDelSection_Anonymous(t *testing.T) {
+	assert := assert.New(t)
+	r := NewTree("testdata")
+
+	// The "anonymous" testdata file has one @anon1[0], two @anon2[*], and
+	// three @anon3[*] sections.
+	names, err := r.GetSections("anonymous", "anon3")
+	assert.NoError(err)
+	assert.Len(names, 3)
+
+	// Remove the middle anonymous section.
+	err = r.DelSection("anonymous", "@anon3[1]")
+	assert.NoError(err)
+
+	names, err = r.GetSections("anonymous", "anon3")
+	assert.NoError(err)
+	assert.Len(names, 2, "one section should have been removed")
+	assert.ElementsMatch(names, []string{"@anon3[0]", "@anon3[1]"})
+}
+
+func TestDelSection_AnonymousFirst(t *testing.T) {
+	assert := assert.New(t)
+	r := NewTree("testdata")
+
+	// Add two anonymous sections with distinct options so we can verify
+	// which one survives.
+	assert.NoError(r.AddAnonymousSection("anonymous", "newtype"))
+	assert.NoError(r.SetType("anonymous", "@newtype[0]", "id", TypeOption, "first"))
+	assert.NoError(r.AddAnonymousSection("anonymous", "newtype"))
+	assert.NoError(r.SetType("anonymous", "@newtype[1]", "id", TypeOption, "second"))
+
+	assert.NoError(r.DelSection("anonymous", "@newtype[0]"))
+
+	names, err := r.GetSections("anonymous", "newtype")
+	assert.NoError(err)
+	assert.Len(names, 1)
+
+	val, ok := r.GetLast("anonymous", "@newtype[0]", "id")
+	assert.True(ok)
+	assert.Equal("second", val, "the second section should now be at index 0")
+}
+
+func TestDelSection_AnonymousAll(t *testing.T) {
+	// Removing all anonymous sections of a type must leave none behind.
+	// Because deletion shifts indices, always re-query and delete [0] rather
+	// than iterating over a pre-captured name slice.
+	assert := assert.New(t)
+	r := NewTree("testdata")
+
+	n, _ := r.GetSections("anonymous", "anon2")
+	for range n {
+		assert.NoError(r.DelSection("anonymous", "@anon2[0]"))
+	}
+
+	remaining, err := r.GetSections("anonymous", "anon2")
+	assert.NoError(err)
+	assert.Len(remaining, 0)
 }
 
 func TestDelSection_Anonymous(t *testing.T) {
